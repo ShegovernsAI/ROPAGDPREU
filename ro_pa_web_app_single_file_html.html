@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RoPA – Record of Processing Activities</title>
+  <meta name="description" content="Lightweight, privacy-first Record of Processing Activities (RoPA) tracker. Single-file web app that runs locally in your browser." />
+  <meta property="og:title" content="RoPA – Record of Processing Activities" />
+  <meta property="og:description" content="A beautiful, single-file RoPA tracker that mimics modern GRC tools." />
+  <meta property="og:type" content="website" />
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <link rel="manifest" href="manifest.webmanifest">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* ====== THEME + TOKENS ====== */
+    :root{
+      --bg: #0b0c10;
+      --panel:#111217;
+      --text:#e9ecf1;
+      --muted:#a9b0bd;
+      --brand:#6ee7b7;
+      --brand-2:#60a5fa;
+      --danger:#ef4444;
+      --card:#0f1115;
+      --border:#1f2430;
+      --chip:#1b2030;
+      --shadow: 0 8px 24px rgba(0,0,0,.25);
+      --link:#8ab4ff;
+    }
+    [data-theme="light"]{
+      --bg:#f5f7fb; --panel:#fff; --text:#0b1220; --muted:#5a6475; --brand:#0ea5e9; --brand-2:#7c3aed; --card:#fff; --border:#e6eaf2; --chip:#eef2f9; --shadow:0 8px 24px rgba(2,8,23,.08); --link:#1d4ed8;
+    }
+
+    html,body{height:100%}
+    body{margin:0;font:14px/1.5 Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica Neue, Arial; background:var(--bg); color:var(--text)}
+
+    /* ====== LAYOUT (Website shell) ====== */
+    .site{min-height:100dvh;display:grid;grid-template-rows:auto 1fr auto}
+    .container{max-width:1200px;margin:0 auto;padding:24px 16px}
+
+    /* Top Navbar */
+    .navbar{position:sticky;top:0;z-index:60;background:linear-gradient(to bottom, var(--bg), color-mix(in oklab, var(--bg) 70%, transparent));backdrop-filter:saturate(1.2) blur(8px);border-bottom:1px solid var(--border)}
+    .nav-inner{max-width:1200px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:16px}
+    .brand{display:flex;align-items:center;gap:10px;font-weight:800}
+    .brand .logo{width:28px;height:28px;display:grid;place-items:center;border-radius:8px;background:linear-gradient(135deg, var(--brand), var(--brand-2));color:#07121a;box-shadow:var(--shadow)}
+    .nav-links{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+    .tab{appearance:none;border:1px solid var(--border);background:var(--panel);color:var(--text);padding:8px 12px;border-radius:10px;cursor:pointer}
+    .tab.active{background:linear-gradient(135deg, var(--brand), var(--brand-2)); color:#081016; border-color:transparent; font-weight:700}
+
+    /* Hero / header block */
+    .hero{border-bottom:1px solid var(--border);background:radial-gradient(1200px 300px at 50% -50%, color-mix(in oklab, var(--brand) 14%, transparent), transparent)}
+    .hero h1{margin:0 0 6px;font-size:clamp(20px, 4vw, 28px)}
+    .hero .sub{color:var(--muted)}
+
+    /* Main grid */
+    .grid-main{display:grid;grid-template-columns:1fr;gap:16px}
+    @media(min-width:1000px){ .grid-main{grid-template-columns:260px 1fr} }
+
+    /* Sidebar (docs/links) */
+    .sidebar{position:sticky;top:76px;align-self:start;display:flex;flex-direction:column;gap:10px;border:1px solid var(--border);border-radius:14px;background:var(--panel);padding:12px}
+    .side-title{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+    .side a{color:var(--link);text-decoration:none}
+
+    /* Cards/Table from previous app */
+    .card{background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden}
+    .toolbar{display:flex;gap:8px;flex-wrap:wrap;padding:14px}
+    .search{flex:1;min-width:240px;position:relative}
+    .search input{width:100%;padding:12px 36px 12px 12px;border-radius:12px;border:1px solid var(--border);background:var(--panel);color:var(--text)}
+    .search .icon{position:absolute;right:10px;top:50%;translate:0 -50%;opacity:.7}
+    .pillbar{display:flex;gap:6px;flex-wrap:wrap}
+    .btn{appearance:none;border:none;border-radius:12px;padding:10px 12px;background:var(--panel);color:var(--text);cursor:pointer;transition:.15s;border:1px solid var(--border);box-shadow:var(--shadow)}
+    .btn:hover{transform:translateY(-1px)}
+    .btn-primary{background: linear-gradient(135deg, var(--brand), var(--brand-2)); color:#081016; border-color:transparent; font-weight:700}
+    .btn-ghost{background:transparent;border:1px dashed var(--border)}
+    .btn-danger{background: color-mix(in oklab, var(--danger) 25%, var(--panel)); border-color: color-mix(in oklab, var(--danger) 40%, var(--border));}
+
+    table{width:100%;border-collapse:separate;border-spacing:0}
+    thead th{position:sticky;top:0;background:var(--card); z-index:1}
+    th, td{padding:12px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top}
+    tbody tr:hover{background:color-mix(in oklab, var(--panel) 50%, transparent)}
+    .status{padding:3px 8px;border-radius:999px;border:1px solid var(--border);font-size:12px;display:inline-block}
+    .status.active{background:color-mix(in oklab, var(--brand) 22%, var(--chip)); color:var(--text)}
+    .status.draft{background:var(--chip)}
+    .status.archived{background:color-mix(in oklab, var(--muted) 10%, var(--chip))}
+    .chips{display:flex;flex-wrap:wrap;gap:6px}
+    .chip{background:var(--chip);border:1px solid var(--border);padding:4px 8px;border-radius:999px;font-size:12px;color:var(--muted)}
+
+    /* Footer */
+    footer{border-top:1px solid var(--border);padding:18px 16px;color:var(--muted);background:linear-gradient(to top, color-mix(in oklab, var(--bg) 85%, transparent), transparent)}
+    .kbd{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono"; font-size:12px;background:var(--chip);border:1px solid var(--border);border-radius:6px;padding:1px 6px}
+
+    /* Modal */
+    dialog{border:none;max-width:920px;width:clamp(320px, 90vw, 920px);border-radius:16px;background:var(--panel);color:var(--text);box-shadow:var(--shadow)}
+    dialog::backdrop{background:rgba(0,0,0,.65)}
+    .modal-head{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);padding:12px 16px}
+    .modal-body{padding:12px 16px 16px;max-height:70vh;overflow:auto}
+    .grid{display:grid;gap:10px}
+    .grid.cols-2{grid-template-columns:repeat(2,1fr)}
+    .grid.cols-3{grid-template-columns:repeat(3,1fr)}
+    .field{display:flex;flex-direction:column;gap:6px}
+    label{font-size:12px;color:var(--muted)}
+    input, textarea, select{background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:10px}
+    textarea{min-height:72px;resize:vertical}
+    .foot{display:flex;gap:8px;justify-content:flex-end;padding:12px 16px;border-top:1px solid var(--border)}
+  </style>
+</head>
+<body>
+  <div class="site">
+    <!-- ====== NAVBAR ====== -->
+    <nav class="navbar">
+      <div class="nav-inner">
+        <div class="brand">
+          <div class="logo">R</div>
+          <span>RoPA</span>
+          <span class="badge" style="font-size:12px;color:var(--muted);border:1px solid var(--border);padding:2px 8px;border-radius:999px">GDPR Art. 30</span>
+        </div>
+        <div class="nav-links">
+          <button class="tab active" data-route="activities">Activities</button>
+          <button class="tab" data-route="vendors">Vendors</button>
+          <button class="tab" data-route="settings">Settings</button>
+          <button class="tab" data-route="help">Help</button>
+          <button id="themeToggle" class="tab" title="Toggle theme">☀️/🌙</button>
+        </div>
+      </div>
+    </nav>
+
+    <!-- ====== HERO ====== -->
+    <header class="hero">
+      <div class="container">
+        <h1>Record of Processing Activities</h1>
+        <p class="sub">A clean, single‑file web app that runs locally in Chrome. Export JSON/CSV, print summaries, and manage your RoPA like a modern GRC tool.</p>
+      </div>
+    </header>
+
+    <!-- ====== MAIN CONTENT AREA ====== -->
+    <main class="container">
+      <div class="grid-main">
+        <!-- Sidebar with docs/links -->
+        <aside class="sidebar side">
+          <div class="side-title">Quick Actions</div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <button id="addBtn" class="btn-primary">＋ New Activity</button>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <button id="exportJsonBtn" class="btn">Export JSON</button>
+              <button id="exportCsvBtn" class="btn">Export CSV</button>
+              <label class="btn-ghost" for="importFile" title="Import JSON">⬆ Import
+                <input id="importFile" type="file" accept="application/json" hidden>
+              </label>
+              <button id="printBtn" class="btn">🖨 Print</button>
+              <button id="clearBtn" class="btn-danger">Clear</button>
+            </div>
+          </div>
+          <hr style="border:0;border-top:1px solid var(--border)">
+          <div class="side-title">Docs & Guidance</div>
+          <div class="hint">Fields map to: Controller/Processor, Purpose, Categories (Data & Subjects), Recipients, Transfers, Retention, Security, DPIA, Systems.</div>
+          <a href="#help" onclick="routeTo('help');return false;">What belongs in a RoPA?</a>
+          <div class="hint">Build: <span id="buildStamp"></span></div>
+        </aside>
+
+        <!-- Route container -->
+        <section id="route-activities" class="route">
+          <div class="card">
+            <div class="toolbar">
+              <div class="search">
+                <input id="searchInput" placeholder="Search (name, purpose, owner, systems…)" autocomplete="off" />
+                <span class="icon">⌘K</span>
+              </div>
+              <div class="pillbar" id="quickPills"></div>
+            </div>
+            <div style="overflow:auto; max-height: calc(100vh - 360px)">
+              <table id="table">
+                <thead>
+                  <tr>
+                    <th>Activity</th>
+                    <th>Owner</th>
+                    <th>Purpose</th>
+                    <th>Data Subjects</th>
+                    <th>Data Categories</th>
+                    <th>Legal Basis</th>
+                    <th>Processor/Controller</th>
+                    <th>Recipients</th>
+                    <th>X‑Border</th>
+                    <th>Retention</th>
+                    <th>DPIA</th>
+                    <th>Systems</th>
+                    <th>Last Review</th>
+                    <th>Status</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section id="route-vendors" class="route" style="display:none">
+          <div class="card" style="padding:16px">
+            <h3 style="margin:0 0 8px">Vendors (coming soon)</h3>
+            <p class="hint">Track sub‑processors and third‑party tools here. If you want, I can wire this to share the same data store and add SCCs/TOMs columns.</p>
+          </div>
+        </section>
+
+        <section id="route-settings" class="route" style="display:none">
+          <div class="card" style="padding:16px">
+            <h3 style="margin:0 0 8px">Settings</h3>
+            <div class="hint">Autosaves in Chrome localStorage. Export regularly if this is mission‑critical.</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+              <button id="resetDemoBtn" class="btn">Load Demo Data</button>
+              <button id="themeToggle2" class="btn">Toggle Theme</button>
+            </div>
+          </div>
+        </section>
+
+        <section id="route-help" class="route" style="display:none">
+          <div class="card" style="padding:16px">
+            <h3 style="margin:0 0 8px">Help</h3>
+            <ul>
+              <li>Press <span class="kbd">⌘</span>+<span class="kbd">K</span> to focus search.</li>
+              <li>Use <strong>Export JSON</strong> to back up. Re‑import later on any machine.</li>
+              <li><strong>Print</strong> to generate a PDF summary for audits.</li>
+            </ul>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <footer>
+      <div class="container">RoPA single‑file app • No tracking • Runs locally • <a href="#help" onclick="routeTo('help');return false;" style="color:var(--link)">Help</a></div>
+    </footer>
+  </div>
+
+  <!-- ====== MODAL (Create/Edit) ====== -->
+  <dialog id="modal">
+    <form method="dialog" id="form">
+      <div class="modal-head">
+        <strong id="formTitle">New Activity</strong>
+        <button type="button" id="closeModal" class="btn">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="grid cols-3">
+          <div class="field"><label>Activity Name *</label><input name="name" required placeholder="e.g., Customer Support Ticketing" /></div>
+          <div class="field"><label>Owner *</label><input name="owner" required placeholder="e.g., Support Lead" /></div>
+          <div class="field"><label>Status</label><select name="status"><option>Active</option><option>Draft</option><option>Archived</option></select></div>
+        </div>
+        <div class="grid cols-2" style="margin-top:8px">
+          <div class="field"><label>Purpose *</label><input name="purpose" required placeholder="e.g., Respond to customer inquiries" /></div>
+          <div class="field"><label>Legal Basis *</label><input name="legalBasis" required placeholder="e.g., Contract, Legitimate Interests" /></div>
+        </div>
+        <div class="grid cols-3" style="margin-top:8px">
+          <div class="field"><label>Controller / Processor *</label><input name="role" required placeholder="e.g., Controller (SaaS) / Processor for clients" /></div>
+          <div class="field"><label>Recipients / Categories of Recipients</label><input name="recipients" placeholder="e.g., CRM vendor, payment gateway" /></div>
+          <div class="field"><label>Cross‑border Transfers</label><input name="transfers" placeholder="e.g., EU→US (SCCs)" /></div>
+        </div>
+        <div class="grid cols-3" style="margin-top:8px">
+          <div class="field"><label>Data Subjects *</label><input name="subjects" required placeholder="e.g., Customers, Website visitors" /></div>
+          <div class="field"><label>Categories of Personal Data *</label><input name="categories" required placeholder="e.g., Contact data, usage data" /></div>
+          <div class="field"><label>Special Categories</label><input name="specialCats" placeholder="e.g., None" /></div>
+        </div>
+        <div class="grid cols-3" style="margin-top:8px">
+          <div class="field"><label>Retention *</label><input name="retention" required placeholder="e.g., 24 months after account closure" /></div>
+          <div class="field"><label>Security Measures *</label><input name="security" required placeholder="e.g., Encryption at rest, RBAC, audit logs" /></div>
+          <div class="field"><label>DPIA Required?</label><select name="dpia"><option>No</option><option>Yes</option></select></div>
+        </div>
+        <div class="grid cols-3" style="margin-top:8px">
+          <div class="field"><label>Systems / Vendors</label><input name="systems" placeholder="e.g., Zendesk, Salesforce, Snowflake" /></div>
+          <div class="field"><label>Source of Data</label><input name="source" placeholder="e.g., Direct from data subject, website forms" /></div>
+          <div class="field"><label>Lawful Basis Notes</label><input name="basisNotes" placeholder="e.g., LI balancing test completed" /></div>
+        </div>
+        <div class="grid cols-3" style="margin-top:8px">
+          <div class="field"><label>Location(s) of Processing</label><input name="locations" placeholder="e.g., EU, Canada, US" /></div>
+          <div class="field"><label>Joint Controllers / Sub‑Processors</label><input name="partners" placeholder="e.g., Cloud host, analytics provider" /></div>
+          <div class="field"><label>Last Review</label><input name="lastReview" type="date" /></div>
+        </div>
+        <div class="field" style="margin-top:8px"><label>Notes</label><textarea name="notes" placeholder="Add additional context, DPIA link, TOMs details, etc."></textarea></div>
+      </div>
+      <div class="foot">
+        <button type="button" class="btn" id="duplicateBtn" title="Duplicate activity">Duplicate</button>
+        <div style="flex:1"></div>
+        <button type="button" class="btn" id="deleteBtn">Delete</button>
+        <button class="btn-primary">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script>
+    // ====== HELPERS ======
+    const $ = (sel, root=document) => root.querySelector(sel);
+    const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+    const STORE_KEY = 'ropaRecords.v1';
+    const PREF_KEY = 'ropaPrefs.v1';
+    const prefs = JSON.parse(localStorage.getItem(PREF_KEY) || '{}');
+    function savePrefs(){ localStorage.setItem(PREF_KEY, JSON.stringify(prefs)); }
+    function uid(){ return Math.random().toString(36).slice(2,9); }
+    function escapeHtml(s){ return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
+
+    // ====== DATA LAYER ======
+    function seedDemo(){
+      const today = new Date().toISOString().slice(0,10);
+      return [
+        { id: uid(), name: 'Customer Support Ticketing', owner: 'Support Lead', status: 'Active', purpose:'Resolve inquiries and incidents', legalBasis:'Contract; Legitimate Interests', role:'Controller', recipients:'Cloud host; Email service', transfers:'EU→US via SCCs', subjects:'Customers', categories:'Contact data; communications; usage data', specialCats:'None', retention:'24 months post‑closure', security:'Encryption at rest; RBAC; audit logs', dpia:'No', systems:'Zendesk; Postmark', source:'Direct from data subject', basisNotes:'LI test completed 2024‑09', locations:'EU; Canada; US', partners:'AWS (sub‑processor)', lastReview: today, notes:'Tickets auto‑redacted after 18m.' },
+        { id: uid(), name: 'Marketing Email Automation', owner: 'Marketing Ops', status: 'Active', purpose:'Send product updates and newsletters', legalBasis:'Consent', role:'Controller', recipients:'Email service; analytics', transfers:'Global (SCCs in place)', subjects:'Prospects; Customers', categories:'Email; name; engagement metrics', specialCats:'None', retention:'Until withdrawal or 24m inactivity', security:'DMARC; DKIM; access reviews', dpia:'No', systems:'Klaviyo', source:'Signup forms; in‑app opt‑ins', basisNotes:'Consent captured with timestamp', locations:'EU; US; CA', partners:'Send service', lastReview: today, notes:'Segmented by region.' }
+      ];
+    }
+    function load(){ const raw = localStorage.getItem(STORE_KEY); if(!raw){ const demo=seedDemo(); localStorage.setItem(STORE_KEY, JSON.stringify(demo)); return demo;} try{ return JSON.parse(raw);}catch{ return [] } }
+    function save(data){ localStorage.setItem(STORE_KEY, JSON.stringify(data)); }
+
+    // ====== STATE ======
+    let data = load();
+    let filtered = data.slice();
+    let currentId = null;
+
+    // ====== RENDER ======
+    function chips(str){ if(!str) return ''; return str.split(/[,;]/).map(s=>s.trim()).filter(Boolean).map(s=>`<span class="chip">${escapeHtml(s)}</span>`).join(''); }
+    function klass(status){ const s=(status||'').toLowerCase(); if(s.startsWith('act')) return 'active'; if(s.startsWith('arch')) return 'archived'; return 'draft'; }
+
+    function render(){
+      const q = $('#searchInput').value.trim().toLowerCase();
+      filtered = !q ? data.slice() : data.filter(r => JSON.stringify(r).toLowerCase().includes(q));
+      const tbody = $('#tbody'); tbody.innerHTML = '';
+      for(const r of filtered){
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><strong>${escapeHtml(r.name)}</strong><div class="hint">${escapeHtml(r.notes||'')}</div></td>
+          <td>${escapeHtml(r.owner||'')}</td>
+          <td>${escapeHtml(r.purpose||'')}</td>
+          <td><div class="chips">${chips(r.subjects)}</div></td>
+          <td><div class="chips">${chips(r.categories)}</div></td>
+          <td>${escapeHtml(r.legalBasis||'')}</td>
+          <td>${escapeHtml(r.role||'')}</td>
+          <td>${escapeHtml(r.recipients||'')}</td>
+          <td>${escapeHtml(r.transfers||'')}</td>
+          <td>${escapeHtml(r.retention||'')}</td>
+          <td>${escapeHtml(r.dpia||'')}</td>
+          <td>${escapeHtml(r.systems||'')}</td>
+          <td>${escapeHtml(r.lastReview||'')}</td>
+          <td><span class="status ${klass(r.status)}">${escapeHtml(r.status||'')}</span></td>
+          <td><button class="btn" data-edit="${r.id}">Edit</button></td>`;
+        tbody.appendChild(tr);
+      }
+      renderPills();
+    }
+
+    function renderPills(){
+      const el = $('#quickPills');
+      const statuses = new Set(data.map(r=>r.status||'Draft'));
+      el.innerHTML='';
+      for(const s of statuses){
+        const b=document.createElement('button'); b.textContent=s; b.className='btn'; b.onclick=()=>{ $('#searchInput').value = s; render(); }; el.appendChild(b);
+      }
+      const clear=document.createElement('button'); clear.textContent='Clear Filter'; clear.className='btn-ghost'; clear.onclick=()=>{ $('#searchInput').value=''; render();}; el.appendChild(clear);
+    }
+
+    // ====== MODAL LOGIC ======
+    const modal = $('#modal');
+    const form = $('#form');
+    function openCreate(){ currentId=null; form.reset(); $('#formTitle').textContent='New Activity'; $('select[name="status"]').value='Active'; modal.showModal(); }
+    function openEdit(id){ const r=data.find(x=>x.id===id); if(!r) return; currentId=id; $('#formTitle').textContent='Edit Activity'; for(const [k,v] of Object.entries(r)){ const input = form.elements.namedItem(k); if(input){ input.value = v; } } modal.showModal(); }
+    function collect(){ const f=new FormData(form); return Object.fromEntries(f.entries()); }
+
+    $('#addBtn').onclick=openCreate;
+    $('#closeModal').onclick=()=>modal.close();
+    $('#duplicateBtn').onclick=()=>{ if(!currentId) return; const r=data.find(x=>x.id===currentId); if(!r) return; const copy={...r, id: uid(), name: r.name+' (copy)', lastReview: r.lastReview||new Date().toISOString().slice(0,10)}; data.unshift(copy); save(data); render(); modal.close(); };
+    $('#deleteBtn').onclick=()=>{ if(!currentId){ modal.close(); return; } if(confirm('Delete this activity?')){ data=data.filter(x=>x.id!==currentId); save(data); render(); modal.close(); } };
+    form.addEventListener('submit',(e)=>{ e.preventDefault(); if(!form.reportValidity()) return; const obj=collect(); if(currentId){ const idx=data.findIndex(x=>x.id===currentId); if(idx>-1) data[idx]={...data[idx], ...obj}; } else { data.unshift({id:uid(), ...obj}); } save(data); render(); modal.close(); });
+
+    // ====== TABLE EVENTS ======
+    $('#tbody').addEventListener('click', (e)=>{ const btn=e.target.closest('button[data-edit]'); if(btn){ openEdit(btn.getAttribute('data-edit')); } });
+
+    // ====== SEARCH & KEYBOARD ======
+    $('#searchInput').addEventListener('input', render);
+    document.addEventListener('keydown', (e)=>{ if((e.metaKey||e.ctrlKey) && e.key.toLowerCase()==='k'){ e.preventDefault(); $('#searchInput').focus(); } });
+
+    // ====== THEME ======
+    function applyTheme(){ const theme=prefs.theme||'dark'; document.documentElement.setAttribute('data-theme', theme); $('#themeToggle').textContent = theme==='dark' ? '☀️' : '🌙'; if($('#themeToggle2')) $('#themeToggle2').textContent = 'Toggle Theme ('+(theme==='dark'?'Dark':'Light')+')'; }
+    applyTheme();
+    $('#themeToggle').onclick=()=>{ prefs.theme = (prefs.theme==='light')?'dark':'light'; savePrefs(); applyTheme(); };
+    if($('#themeToggle2')) $('#themeToggle2').onclick=()=>{ $('#themeToggle').click(); };
+
+    // ====== EXPORT / IMPORT / PRINT / CLEAR ======
+    $('#exportJsonBtn').onclick=()=>{ download('ropa.json', JSON.stringify(data, null, 2)); };
+    $('#exportCsvBtn').onclick=()=>{ if(!data.length){ alert('No records to export'); return; } download('ropa.csv', toCSV(data)); };
+    $('#importFile').addEventListener('change', async (e)=>{ const file=e.target.files[0]; if(!file) return; try{ const text=await file.text(); const arr=JSON.parse(text); if(!Array.isArray(arr)) throw new Error('Invalid JSON: expected an array of records'); for(const r of arr){ if(!r.id) r.id=uid(); } data=arr; save(data); render(); e.target.value=''; alert('Imported '+data.length+' records'); }catch(err){ alert('Import failed: '+err.message); } });
+    $('#printBtn').onclick=()=>window.print();
+    $('#clearBtn').onclick=()=>{ if(confirm('This will remove all records from your browser. Continue?')){ data=[]; save(data); render(); } };
+    if($('#resetDemoBtn')) $('#resetDemoBtn').onclick=()=>{ if(confirm('Replace current data with demo set?')){ data=seedDemo(); save(data); render(); } };
+
+    function toCSV(rows){ const headers = Object.keys(rows[0]||{id:''}); const escape=v=>'"'+String(v??'').replace(/"/g,'""')+'"'; const out=[headers.join(',')].concat(rows.map(r=>headers.map(h=>escape(r[h])).join(','))); return out.join('
+'); }
+    function download(filename, text){ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([text],{type:'text/plain'})); a.download=filename; a.click(); URL.revokeObjectURL(a.href); }
+
+    // ====== SIMPLE ROUTER ======
+    function routeTo(name){ $$('.route').forEach(r=>r.style.display='none'); $(`#route-${name}`).style.display='block'; $$('.tab').forEach(t=>t.classList.toggle('active', t.dataset.route===name)); }
+    window.routeTo = routeTo;
+    $$('.tab[data-route]').forEach(t=>t.addEventListener('click', ()=>routeTo(t.dataset.route)));
+
+    // ====== INIT ======
+    function init(){ render(); $('#buildStamp').textContent=new Date().toLocaleString(); }
+    init();
+  </script>
+</body>
+</html>
